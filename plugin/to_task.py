@@ -102,12 +102,18 @@ class AnnotationToTask:
 
     def _convert_coco(self, primary_file_url: str, data_file_url: str, temp_path: str) -> dict:
         """Convert COCO format to DM format."""
+        temp_primary_file_path = f'{temp_path}/images/'
+        temp_data_file_path = f'{temp_path}/labels/'
+
+        # Create temp_path directory if not exists
         os.makedirs(temp_path, exist_ok=True)
+        os.makedirs(temp_primary_file_path, exist_ok=True)
+        os.makedirs(temp_data_file_path, exist_ok=True)
 
         # Save primary file to temp path
         primary_filename = os.path.basename(urlparse(primary_file_url).path) or 'primary_file'
         base_name = os.path.splitext(primary_filename)[0]
-        primary_file_path = os.path.join(temp_path, primary_filename)
+        primary_file_path = os.path.join(temp_primary_file_path, primary_filename)
 
         response = requests.get(primary_file_url)
         response.raise_for_status()
@@ -115,17 +121,17 @@ class AnnotationToTask:
             f.write(response.content)
 
         # Save data file to temp path with same base name as primary file
-        data_extension = os.path.splitext(os.path.basename(urlparse(data_file_url).path))[1] or '.json'
+        data_extension = os.path.splitext(os.path.basename(urlparse(data_file_url).path))[1] or '.txt'
         data_filename = f'{base_name}{data_extension}'
-        data_file_path = os.path.join(temp_path, data_filename)
+        data_file_path = os.path.join(temp_data_file_path, data_filename)
 
         response = requests.get(data_file_url)
         response.raise_for_status()
-        with open(data_file_path, 'wb') as f:
-            f.write(response.content)
+        data_file_content = response.content.decode('utf-8').splitlines()
 
-        coco_to_dm_converter = COCOToDMConverter(temp_path, False, True)
-        converted_data = coco_to_dm_converter.convert()
+        with open(primary_file_path, 'r') as f:
+            yolo_to_dm_converter = COCOToDMConverter(temp_path, False, True)
+            converted_data = yolo_to_dm_converter.convert_single_file(data_file_content, f)
 
         # Delete temp files
         try:
@@ -133,21 +139,31 @@ class AnnotationToTask:
                 os.remove(primary_file_path)
             if os.path.exists(data_file_path):
                 os.remove(data_file_path)
+            # Remove temp directory if empty
             if os.path.exists(temp_path) and not os.listdir(temp_path):
                 os.rmdir(temp_path)
         except OSError:
-            pass
+            pass  # Ignore cleanup errors
 
+        # Convert converted_data to DM Ver 1
+        dm_v2_to_v1_converter = DMV2ToV1Converter(converted_data['dm_json'], 'image')
+        converted_data = dm_v2_to_v1_converter.convert()
         return converted_data
 
     def _convert_pascal(self, primary_file_url: str, data_file_url: str, temp_path: str) -> dict:
         """Convert Pascal format to DM format."""
+        temp_primary_file_path = f'{temp_path}/images/'
+        temp_data_file_path = f'{temp_path}/labels/'
+
+        # Create temp_path directory if not exists
         os.makedirs(temp_path, exist_ok=True)
+        os.makedirs(temp_primary_file_path, exist_ok=True)
+        os.makedirs(temp_data_file_path, exist_ok=True)
 
         # Save primary file to temp path
         primary_filename = os.path.basename(urlparse(primary_file_url).path) or 'primary_file'
         base_name = os.path.splitext(primary_filename)[0]
-        primary_file_path = os.path.join(temp_path, primary_filename)
+        primary_file_path = os.path.join(temp_primary_file_path, primary_filename)
 
         response = requests.get(primary_file_url)
         response.raise_for_status()
@@ -155,17 +171,17 @@ class AnnotationToTask:
             f.write(response.content)
 
         # Save data file to temp path with same base name as primary file
-        data_extension = os.path.splitext(os.path.basename(urlparse(data_file_url).path))[1] or '.xml'
+        data_extension = os.path.splitext(os.path.basename(urlparse(data_file_url).path))[1] or '.txt'
         data_filename = f'{base_name}{data_extension}'
-        data_file_path = os.path.join(temp_path, data_filename)
+        data_file_path = os.path.join(temp_data_file_path, data_filename)
 
         response = requests.get(data_file_url)
         response.raise_for_status()
-        with open(data_file_path, 'wb') as f:
-            f.write(response.content)
+        data_file_content = response.content.decode('utf-8').splitlines()
 
-        pascal_to_dm_converter = PascalToDMConverter(temp_path, False, True)
-        converted_data = pascal_to_dm_converter.convert()
+        with open(primary_file_path, 'r') as f:
+            yolo_to_dm_converter = PascalToDMConverter(temp_path, False, True)
+            converted_data = yolo_to_dm_converter.convert_single_file(data_file_content, f)
 
         # Delete temp files
         try:
@@ -173,11 +189,15 @@ class AnnotationToTask:
                 os.remove(primary_file_path)
             if os.path.exists(data_file_path):
                 os.remove(data_file_path)
+            # Remove temp directory if empty
             if os.path.exists(temp_path) and not os.listdir(temp_path):
                 os.rmdir(temp_path)
         except OSError:
-            pass
+            pass  # Ignore cleanup errors
 
+        # Convert converted_data to DM Ver 1
+        dm_v2_to_v1_converter = DMV2ToV1Converter(converted_data['dm_json'], 'image')
+        converted_data = dm_v2_to_v1_converter.convert()
         return converted_data
 
     def _convert_dm_schema_v1(self, data_file_url: str) -> dict:
@@ -192,6 +212,7 @@ class AnnotationToTask:
         response.raise_for_status()
         data = response.data
 
+        # TODO: params 를 통해 file type 받아서 처리하도록 개선
         dm_v2_to_v1_converter = DMV2ToV1Converter(data, 'image')
         converted_data = dm_v2_to_v1_converter.convert()
 
@@ -206,4 +227,7 @@ class AnnotationToTask:
         Returns:
             dict: The converted data.
         """
-        return data
+        # TODO: params 를 통해 file type 받아서 처리하도록 개선
+        dm_v2_to_v1_converter = DMV2ToV1Converter(data, 'image')
+        converted_data = dm_v2_to_v1_converter.convert()
+        return converted_data
