@@ -1,0 +1,41 @@
+name: Pre Annotation To Task Plugin
+code: pre-annotation-to-task
+version: 0.1.0
+readme: README.md
+description: This is task-pre-annotation plugin
+category: pre_annotation
+package_manager: pip
+actions:
+  pre_annotation:
+    entrypoint: plugin.pre_annotation.pre_annotate
+  to_task:
+    entrypoint: plugin.to_task.AnnotationToTask
+    inference_options:
+      required_cpu_count: 2
+      required_gpu_count: 1
+    ui_schema:
+      - $formkit: "radio"
+        name: "schema_to_convert"
+        label: "변환 스키마"
+        help: "변환 스키마 선택"
+        required: True
+        value: "<yolo>"
+        option:
+          - label: "Yolo"
+            value: "yolo"
+          - label: "Coco"
+            value: "coco"
+          - label: "Pascal"
+            value: "pascal"
+          - label: "DMSchemaVer1"
+            value: "dm_schema_ver_1"
+          - label: "DMSchemaVer2"
+            value: "dm_schema_ver_2"
+      - $formkit: "text"
+        name: "yolo_class_names"
+        label: "YOLO 클래스 이름"
+        help: "YOLO 스키마에 해당되는 클래스 이름 목록을 입력하세요 (쉼표로 구분)"
+        required: True
+        validation: "required"
+        value: ""
+

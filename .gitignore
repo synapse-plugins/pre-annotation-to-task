@@ -1,0 +1,30 @@
+### Example user template template
+# virtualenv
+.venv
+
+# idea
+.DS_Store
+*.pyc
+.idea
+*.iml
+
+# vscode
+.vscode
+
+# http
+/http/
+
+# general things to ignore
+build/
+dist/
+*.egg-info/
+*.egg
+*.py[cod]
+__pycache__/
+*.so
+*~
+.env
+
+# due to using tox and pytest
+.tox
+.cache
