@@ -17,12 +17,20 @@ class AnnotationToTask:
         """
         self.run = run
 
-    def convert_data_from_file(self, primary_file_url: str, data_file_url: str) -> dict:
+    def convert_data_from_file(
+        self,
+        primary_file_url: str,
+        primary_file_original_name: str,
+        data_file_url: str,
+        data_file_original_name: str,
+    ) -> dict:
         """Convert the data from a file to a task object.
 
         Args:
             primary_file_url (str): primary file url.
+            primary_file_original_name (str): primary file original name.
             data_file_url (str): data file url.
+            data_file_original_name (str): data file original name.
 
         Returns:
             dict: The converted data.
@@ -38,7 +46,9 @@ class AnnotationToTask:
             yolo_class_names = yolo_class_names.split(',')
             converted_data = self._convert_yolo(primary_file_url, data_file_url, temp_path, yolo_class_names)
         elif schema_to_convert == 'coco':
-            converted_data = self._convert_coco(primary_file_url, data_file_url, temp_path)
+            converted_data = self._convert_coco(
+                primary_file_url, primary_file_original_name, data_file_url, data_file_original_name, temp_path
+            )
         elif schema_to_convert == 'pascal':
             converted_data = self._convert_pascal(primary_file_url, data_file_url, temp_path)
         elif schema_to_convert == 'dm_schema_ver_1':
@@ -100,7 +110,14 @@ class AnnotationToTask:
         converted_data = dm_v2_to_v1_converter.convert()
         return converted_data
 
-    def _convert_coco(self, primary_file_url: str, data_file_url: str, temp_path: str) -> dict:
+    def _convert_coco(
+        self,
+        primary_file_url: str,
+        primary_file_original_name: str,
+        data_file_url: str,
+        data_file_original_name: str,
+        temp_path: str,
+    ) -> dict:
         """Convert COCO format to DM format."""
         temp_primary_file_path = f'{temp_path}/images/'
         temp_data_file_path = f'{temp_path}/labels/'
@@ -127,11 +144,11 @@ class AnnotationToTask:
 
         response = requests.get(data_file_url)
         response.raise_for_status()
-        data_file_content = response.content.decode('utf-8').splitlines()
+        data_file_content = response.json()
 
         with open(primary_file_path, 'r') as f:
             yolo_to_dm_converter = COCOToDMConverter(temp_path, False, True)
-            converted_data = yolo_to_dm_converter.convert_single_file(data_file_content, f)
+            converted_data = yolo_to_dm_converter.convert_single_file(data_file_content, f, primary_file_original_name)
 
         # Delete temp files
         try:
@@ -177,7 +194,7 @@ class AnnotationToTask:
 
         response = requests.get(data_file_url)
         response.raise_for_status()
-        data_file_content = response.content.decode('utf-8').splitlines()
+        data_file_content = response.content.decode('utf-8')
 
         with open(primary_file_path, 'r') as f:
             yolo_to_dm_converter = PascalToDMConverter(temp_path, False, True)

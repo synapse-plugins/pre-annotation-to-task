@@ -1,6 +1,6 @@
 name: Pre Annotation To Task Plugin
 code: pre-annotation-to-task
-version: 0.1.0
+version: 0.1.1
 readme: README.md
 description: This is task-pre-annotation plugin
 category: pre_annotation
@@ -16,8 +16,8 @@ actions:
     ui_schema:
       - $formkit: "radio"
         name: "schema_to_convert"
-        label: "변환 스키마"
-        help: "변환 스키마 선택"
+        label: "기존 데이터 스키마"
+        help: "등록할 데이터의 스키마를 선택해주세요."
         required: True
         value: "<yolo>"
         option:
@@ -35,7 +35,5 @@ actions:
         name: "yolo_class_names"
         label: "YOLO 클래스 이름"
         help: "YOLO 스키마에 해당되는 클래스 이름 목록을 입력하세요 (쉼표로 구분)"
-        required: True
-        validation: "required"
         value: ""
 
