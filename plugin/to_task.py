@@ -1,4 +1,7 @@
+import copy
 import os
+import re
+from collections import defaultdict
 from urllib.parse import urlparse
 
 import requests
@@ -54,7 +57,7 @@ class AnnotationToTask:
         elif schema_to_convert == 'dm_schema_ver_1':
             converted_data = self._convert_dm_schema_v1(data_file_url)
         elif schema_to_convert == 'dm_schema_ver_2':
-            converted_data = self._convert_dm_schema_v2(primary_file_url, data_file_url, temp_path)
+            converted_data = self._convert_dm_schema_v2(data_file_url)
         else:
             raise ValueError(f'Unsupported schema_to_convert: {schema_to_convert}')
 
@@ -221,16 +224,21 @@ class AnnotationToTask:
         """Load DM Schema V1 format data directly from URL (no conversion needed)."""
         response = requests.get(data_file_url)
         response.raise_for_status()
-        return response.data
+        try:
+            json_data = response.json()
+            converted_data = self._normalize_dm_schema_v1_nested_dictionary_keys(json_data)
+            return converted_data
+        except ValueError as e:
+            raise ValueError(f'Failed to parse JSON response: {str(e)}')
 
     def _convert_dm_schema_v2(self, data_file_url: str) -> dict:
         """Convert DM Schema V2 format to DM format."""
         response = requests.get(data_file_url)
         response.raise_for_status()
-        data = response.data
+        json_data = response.json()
 
         # TODO: params 를 통해 file type 받아서 처리하도록 개선
-        dm_v2_to_v1_converter = DMV2ToV1Converter(data, 'image')
+        dm_v2_to_v1_converter = DMV2ToV1Converter(json_data, 'image')
         converted_data = dm_v2_to_v1_converter.convert()
 
         return converted_data
@@ -248,3 +256,152 @@ class AnnotationToTask:
         dm_v2_to_v1_converter = DMV2ToV1Converter(data, 'image')
         converted_data = dm_v2_to_v1_converter.convert()
         return converted_data
+
+    def _normalize_dm_schema_v1_nested_dictionary_keys(self, data):
+        """
+        특정 dictionary의 중첩된 구조에서 "_number" 형태가 없는 키에 번호를 붙여주는 메서드
+
+        처리 대상: extra, relations, annotations, annotationsData, annotationGroups
+        각 dict 내부의 키들에 대해 "_number" 형태가 없으면 추가
+
+        Args:
+            data (dict): 처리할 데이터 딕셔너리
+
+        Returns:
+            dict: 키가 정규화된 새로운 딕셔너리
+        """
+        # 처리 대상 키 목록
+        target_keys = {'extra', 'relations', 'annotations', 'annotationsData', 'annotationGroups'}
+
+        # 깊은 복사로 원본 보존
+        normalized_data = copy.deepcopy(data)
+
+        for main_key in target_keys:
+            if main_key in normalized_data and isinstance(normalized_data[main_key], dict):
+                # 해당 딕셔너리의 키들을 정규화
+                normalized_data[main_key] = self._normalize_dm_schema_v1_keys_with_incremental_numbers(
+                    normalized_data[main_key]
+                )
+
+        return normalized_data
+
+    def _normalize_dm_schema_v1_keys_with_incremental_numbers(self, nested_dict):
+        """
+        딕셔너리 내부의 키들에 순차적으로 번호를 붙이는 함수
+        같은 기본 키가 여러 개 있으면 _1, _2, _3 순으로 번호 증가
+
+        Args:
+            nested_dict (dict): 정규화할 중첩 딕셔너리
+
+        Returns:
+            dict: 키가 정규화된 딕셔너리
+        """
+        if not isinstance(nested_dict, dict):
+            return nested_dict
+
+        # 기본 키별 카운터
+        key_counters = defaultdict(int)
+        normalized_dict = {}
+
+        # 먼저 모든 키를 순회하여 기본 키 추출 및 카운팅
+        base_key_groups = defaultdict(list)
+
+        for key in nested_dict.keys():
+            # "_숫자" 패턴이 있으면 기본 키 추출, 없으면 전체가 기본 키
+            base_key = re.sub(r'_\d+$', '', key)
+            base_key_groups[base_key].append(key)
+
+        # 각 기본 키 그룹별로 순차적으로 번호 할당
+        for base_key, original_keys in base_key_groups.items():
+            for i, original_key in enumerate(original_keys, 1):
+                new_key = f'{base_key}_{i}'
+                normalized_dict[new_key] = nested_dict[original_key]
+
+        return normalized_dict
+
+    def analyze_dm_schema_v1_dictionary_structure(self, data):
+        """
+        딕셔너리 구조를 분석하여 정규화가 필요한 부분을 식별하는 함수
+
+        Args:
+            data (dict): 분석할 데이터
+
+        Returns:
+            dict: 구조 분석 결과
+        """
+        target_keys = {'extra', 'relations', 'annotations', 'annotationsData', 'annotationGroups'}
+        analysis = {'target_sections': {}, 'needs_normalization': {}, 'summary': {}}
+
+        for main_key in target_keys:
+            if main_key in data and isinstance(data[main_key], dict):
+                section_info = {
+                    'total_keys': len(data[main_key]),
+                    'keys_with_number': [],
+                    'keys_without_number': [],
+                    'base_key_counts': defaultdict(int),
+                }
+
+                for key in data[main_key].keys():
+                    if re.search(r'_\d+$', key):
+                        section_info['keys_with_number'].append(key)
+                    else:
+                        section_info['keys_without_number'].append(key)
+
+                    # 기본 키 카운팅
+                    base_key = re.sub(r'_\d+$', '', key)
+                    section_info['base_key_counts'][base_key] += 1
+
+                analysis['target_sections'][main_key] = section_info
+                analysis['needs_normalization'][main_key] = len(section_info['keys_without_number']) > 0 or any(
+                    count > 1 for count in section_info['base_key_counts'].values()
+                )
+
+        # 전체 요약
+        total_sections = len(analysis['target_sections'])
+        sections_needing_norm = sum(analysis['needs_normalization'].values())
+
+        analysis['summary'] = {
+            'total_target_sections': total_sections,
+            'sections_needing_normalization': sections_needing_norm,
+            'normalization_required': sections_needing_norm > 0,
+        }
+
+        return analysis
+
+    def compare_normalized_dm_schema_v1_before_after(self, original_data, normalized_data):
+        """
+        정규화 전후 비교 함수
+
+        Args:
+            original_data (dict): 원본 데이터
+            normalized_data (dict): 정규화된 데이터
+
+        Returns:
+            dict: 비교 결과
+        """
+        target_keys = {'extra', 'relations', 'annotations', 'annotationsData', 'annotationGroups'}
+        comparison = {}
+
+        for main_key in target_keys:
+            if main_key in original_data and main_key in normalized_data:
+                original_keys = set(original_data[main_key].keys())
+                normalized_keys = set(normalized_data[main_key].keys())
+
+                comparison[main_key] = {
+                    'original_keys': sorted(original_keys),
+                    'normalized_keys': sorted(normalized_keys),
+                    'key_mappings': [],
+                }
+
+                # 키 매핑 생성 (순서 기반)
+                orig_list = list(original_data[main_key].keys())
+                norm_list = list(normalized_data[main_key].keys())
+
+                for orig_key, norm_key in zip(orig_list, norm_list):
+                    comparison[main_key]['key_mappings'].append({
+                        'original': orig_key,
+                        'normalized': norm_key,
+                        'changed': orig_key != norm_key,
+                    })
+
+        return comparison

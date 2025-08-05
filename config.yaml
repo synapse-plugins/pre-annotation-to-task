@@ -35,5 +35,6 @@ actions:
         name: "yolo_class_names"
         label: "YOLO 클래스 이름"
         help: "YOLO 스키마에 해당되는 클래스 이름 목록을 입력하세요 (쉼표로 구분)"
+        if: schema_to_convert == "yolo"
         value: ""
 
