@@ -46,7 +46,7 @@ class AnnotationToTask:
 
         if schema_to_convert == 'yolo':
             yolo_class_names = self.run.context.get('params').get('pre_processor_params').get('yolo_class_names')
-            yolo_class_names = yolo_class_names.split(',')
+            yolo_class_names = yolo_class_names.replace(' ', '').split(',')
             converted_data = self._convert_yolo(primary_file_url, data_file_url, temp_path, yolo_class_names)
         elif schema_to_convert == 'coco':
             converted_data = self._convert_coco(
