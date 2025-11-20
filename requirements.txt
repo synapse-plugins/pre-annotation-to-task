@@ -1,1 +1,1 @@
-synapse-sdk>=1.0.0b12
+synapse-sdk>=2025.11.4
