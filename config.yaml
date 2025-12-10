@@ -10,9 +10,6 @@ actions:
     entrypoint: plugin.pre_annotation.pre_annotate
   to_task:
     entrypoint: plugin.to_task.AnnotationToTask
-    inference_options:
-      required_cpu_count: 2
-      required_gpu_count: 1
     ui_schema:
       - $formkit: "radio"
         name: "schema_to_convert"
