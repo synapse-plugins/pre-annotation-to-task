@@ -109,8 +109,8 @@ class AnnotationToTask:
             pass  # Ignore cleanup errors
 
         # Convert converted_data to DM Ver 1
-        dm_v2_to_v1_converter = DMV2ToV1Converter(converted_data['dm_json'], 'image')
-        converted_data = dm_v2_to_v1_converter.convert()
+        dm_v2_to_v1_converter = DMV2ToV1Converter()
+        converted_data = dm_v2_to_v1_converter.convert(converted_data['dm_json'])
         return converted_data
 
     def _convert_coco(
