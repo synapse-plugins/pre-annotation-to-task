@@ -253,8 +253,8 @@ class AnnotationToTask:
             dict: The converted data.
         """
         # TODO: params 를 통해 file type 받아서 처리하도록 개선
-        dm_v2_to_v1_converter = DMV2ToV1Converter(data, 'image')
-        converted_data = dm_v2_to_v1_converter.convert()
+        dm_v2_to_v1_converter = DMV2ToV1Converter()
+        converted_data = dm_v2_to_v1_converter.convert(data)
         return converted_data
 
     def _normalize_dm_schema_v1_nested_dictionary_keys(self, data):
