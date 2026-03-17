@@ -238,8 +238,8 @@ class AnnotationToTask:
         json_data = response.json()
 
         # TODO: params 를 통해 file type 받아서 처리하도록 개선
-        dm_v2_to_v1_converter = DMV2ToV1Converter(json_data, 'image')
-        converted_data = dm_v2_to_v1_converter.convert()
+        dm_v2_to_v1_converter = DMV2ToV1Converter()
+        converted_data = dm_v2_to_v1_converter.convert(json_data)
 
         return converted_data
 
